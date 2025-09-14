@@ -1,0 +1,33 @@
+[package]
+name = "tomplate-macros"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Procedural macros for the tomplate TOML-based template composition library"
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+tomplate-build = { path = "../tomplate-build" }
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+# Template engines for compile-time processing
+handlebars = { workspace = true, optional = true }
+tera = { workspace = true, optional = true }
+minijinja = { workspace = true, optional = true }
+
+[features]
+default = ["handlebars", "simple"]
+simple = []
+all-engines = ["handlebars", "tera", "minijinja", "simple"]
