@@ -3,7 +3,7 @@ mod templates;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, punctuated::Punctuated, Expr, Lit, Token};
+use syn::{parse_macro_input, punctuated::Punctuated, Expr, Lit, Token, ExprMacro};
 
 #[proc_macro]
 pub fn tomplate(input: TokenStream) -> TokenStream {
@@ -17,7 +17,12 @@ pub fn tomplate(input: TokenStream) -> TokenStream {
 
 struct TomplateInput {
     template_name: String,
-    params: Vec<(String, String)>,
+    params: Vec<(String, ParamValue)>,
+}
+
+enum ParamValue {
+    Literal(String),
+    Macro(ExprMacro),
 }
 
 impl syn::parse::Parse for TomplateInput {
@@ -55,13 +60,13 @@ impl syn::parse::Parse for TomplateInput {
                             }
                         };
                         
-                        // Extract parameter value
+                        // Extract parameter value (literal or macro)
                         let param_value = match &*assign.right {
                             Expr::Lit(lit) => match &lit.lit {
-                                Lit::Str(s) => s.value(),
-                                Lit::Int(i) => i.to_string(),
-                                Lit::Float(f) => f.to_string(),
-                                Lit::Bool(b) => b.value.to_string(),
+                                Lit::Str(s) => ParamValue::Literal(s.value()),
+                                Lit::Int(i) => ParamValue::Literal(i.to_string()),
+                                Lit::Float(f) => ParamValue::Literal(f.to_string()),
+                                Lit::Bool(b) => ParamValue::Literal(b.value.to_string()),
                                 _ => {
                                     return Err(syn::Error::new_spanned(
                                         lit,
@@ -69,10 +74,28 @@ impl syn::parse::Parse for TomplateInput {
                                     ))
                                 }
                             },
+                            Expr::Macro(macro_expr) => {
+                                // Check if it's a tomplate! macro call
+                                if let Some(ident) = macro_expr.mac.path.get_ident() {
+                                    if ident == "tomplate" {
+                                        ParamValue::Macro(macro_expr.clone())
+                                    } else {
+                                        return Err(syn::Error::new_spanned(
+                                            macro_expr,
+                                            "Only tomplate! macro calls are supported in parameters",
+                                        ))
+                                    }
+                                } else {
+                                    return Err(syn::Error::new_spanned(
+                                        macro_expr,
+                                        "Expected tomplate! macro call",
+                                    ))
+                                }
+                            },
                             _ => {
                                 return Err(syn::Error::new_spanned(
                                     assign.right,
-                                    "Expected literal value",
+                                    "Expected literal value or tomplate! macro call",
                                 ))
                             }
                         };
@@ -97,9 +120,8 @@ impl syn::parse::Parse for TomplateInput {
 }
 
 fn process_template(input: TomplateInput) -> syn::Result<proc_macro2::TokenStream> {
-    // Load templates from the amalgamated file
-    let templates = templates::load_templates()
-        .map_err(|e| syn::Error::new(proc_macro2::Span::call_site(), e))?;
+    // Get a clone of the cached templates
+    let templates = templates::load_templates();
     
     // Find the requested template
     let template = templates
@@ -111,10 +133,25 @@ fn process_template(input: TomplateInput) -> syn::Result<proc_macro2::TokenStrea
             )
         })?;
     
-    // Convert params to HashMap for engine
+    // Process parameters, expanding any nested macros
     let mut params = std::collections::HashMap::new();
     for (key, value) in input.params {
-        params.insert(key, value);
+        let expanded_value = match value {
+            ParamValue::Literal(s) => s,
+            ParamValue::Macro(macro_expr) => {
+                // Recursively expand the nested tomplate! macro
+                let tokens = macro_expr.mac.tokens.clone();
+                let nested_input = syn::parse2::<TomplateInput>(tokens)?;
+                let nested_result = process_template(nested_input)?;
+                
+                // Extract the string literal from the nested result
+                // The nested result is a quote! { "string" }, so we need to extract the string
+                let token_string = nested_result.to_string();
+                // Remove the quotes from the token string
+                token_string.trim_matches('"').to_string()
+            }
+        };
+        params.insert(key, expanded_value);
     }
     
     // Process the template with the appropriate engine
