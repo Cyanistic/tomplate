@@ -1,0 +1,30 @@
+# SQL Query Templates
+
+[select_user]
+template = "SELECT {fields} FROM users WHERE {condition}"
+engine = "simple"
+
+[select_posts]
+template = "SELECT {fields} FROM posts WHERE {condition}"
+engine = "simple"
+
+[join_query]
+template = """
+SELECT {fields}
+FROM {table1}
+JOIN {table2} ON {join_condition}
+WHERE {where_condition}
+"""
+engine = "simple"
+
+[table_name]
+template = "users"
+engine = "simple"
+
+[user_fields]
+template = "id, name, email"
+engine = "simple"
+
+[post_fields]
+template = "id, title, content, user_id"
+engine = "simple"
