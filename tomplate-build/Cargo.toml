@@ -5,7 +5,6 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-homepage.workspace = true
 description = "Build-time utilities for the tomplate TOML-based template composition library"
 keywords.workspace = true
 categories.workspace = true

@@ -4,6 +4,7 @@ members = [
     "tomplate",
     "tomplate-macros",
     "tomplate-build",
+    "examples/sql_queries",
 ]
 
 [workspace.package]
