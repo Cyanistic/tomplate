@@ -1,0 +1,21 @@
+[package]
+name = "tomplate"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+tomplate-macros = { path = "../tomplate-macros" }
+
+# Re-export for convenience
+tomplate-build = { path = "../tomplate-build", optional = true }
+
+[features]
+default = []
+build = ["tomplate-build"]
