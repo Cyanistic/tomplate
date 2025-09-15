@@ -1,4 +1,5 @@
 mod block;
+mod eager;
 mod engines;
 mod parser;
 mod scope;
@@ -186,4 +187,14 @@ fn process_template(input: TomplateInput) -> syn::Result<proc_macro2::TokenStrea
     Ok(quote! {
         #processed
     })
+}
+
+#[proc_macro]
+pub fn tomplate_eager(input: TokenStream) -> TokenStream {
+    let input = proc_macro2::TokenStream::from(input);
+    
+    match eager::process_eager(input) {
+        Ok(output) => output.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
 }

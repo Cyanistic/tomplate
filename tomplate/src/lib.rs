@@ -1,5 +1,6 @@
-// Re-export the procedural macro
+// Re-export the procedural macros
 pub use tomplate_macros::tomplate;
+pub use tomplate_macros::tomplate_eager;
 
 // Re-export builder utilities for use in build scripts
 #[cfg(feature = "build")]

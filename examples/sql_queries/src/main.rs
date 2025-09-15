@@ -1,6 +1,7 @@
 use tomplate::tomplate;
 
 mod composition;
+mod eager;
 mod engines;
 
 fn main() {
@@ -24,6 +25,13 @@ fn main() {
     
     #[cfg(feature = "minijinja")]
     engines::minijinja_example();
+    
+    println!("\n=== Eager Evaluation ===");
+    eager::macro_order_problem();
+    eager::eager_evaluation_solution();
+    eager::simulated_sqlx_example();
+    eager::nested_composition_example();
+    eager::multiple_macros_example();
 }
 
 fn direct_template_examples() {

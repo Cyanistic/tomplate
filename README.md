@@ -64,6 +64,9 @@ Catch template errors during compilation, not at runtime.
 #### 🏗️ **Scoped Composition Blocks**
 Define local template variables and export constants using familiar Rust syntax.
 
+#### ⚡ **Eager Macro Evaluation**
+Use `tomplate_eager!` to solve macro expansion order issues, enabling tomplate in contexts like `sqlx::query!`.
+
 ### Installation
 
 ```toml
@@ -97,17 +100,17 @@ use tomplate::tomplate;
 
 tomplate! {
     // Define local template helpers
-    let user_fields = template!("user_fields");
-    let where_active = template!("where_active");
+    let user_fields = tomplate!("user_fields");
+    let where_active = tomplate!("where_active");
     
     // Export as real Rust constants
-    const USER_QUERY = template!("select_query",
+    const USER_QUERY = tomplate!("select_query",
         fields = user_fields,
         table = "users",
         where = where_active
     );
     
-    const POST_QUERY = template!("select_query",
+    const POST_QUERY = tomplate!("select_query",
         fields = "id, title, content",
         table = "posts",
         where = where_active
@@ -137,7 +140,7 @@ VALUES ({{values}})
 Use in your code:
 
 ```rust
-const LIST_USERS: &str = mosaic!("user_list",
+const LIST_USERS: &str = tomplate!("user_list",
     fields = "id, name, email",
     condition = "active = true"
 );
@@ -147,15 +150,15 @@ const LIST_USERS: &str = mosaic!("user_list",
 
 #### 1. **Template Composition Through Nesting**
 
-Since Mosaic operates at compile time, templates can be composed by nesting template calls:
+Since Tomplate operates at compile time, templates can be composed by nesting template calls:
 
 ```rust
-const COMPLEX_QUERY: &str = mosaic!("union_query",
-    first = mosaic!("select_query", 
+const COMPLEX_QUERY: &str = tomplate!("union_query",
+    first = tomplate!("select_query", 
         table = "users",
         fields = "id, name"
     ),
-    second = mosaic!("select_query",
+    second = tomplate!("select_query",
         table = "archived_users", 
         fields = "id, name"
     )
@@ -169,19 +172,19 @@ The killer feature: define template variables in a scope and compose them:
 ```rust
 tomplate! {
     // Local bindings - only visible in this block
-    let base_fields = template!("id, name, created_at");
-    let pagination = template!("LIMIT {limit} OFFSET {offset}",
+    let base_fields = tomplate!("id, name, created_at");
+    let pagination = tomplate!("LIMIT {limit} OFFSET {offset}",
         limit = 10,
         offset = 0
     );
     
     // Export constants - available outside the block
-    const USERS_PAGE_1 = template!("SELECT {fields} FROM users {pagination}",
+    const USERS_PAGE_1 = tomplate!("SELECT {fields} FROM users {pagination}",
         fields = base_fields,
         pagination = pagination
     );
     
-    const POSTS_PAGE_1 = template!("SELECT {fields} FROM posts {pagination}",
+    const POSTS_PAGE_1 = tomplate!("SELECT {fields} FROM posts {pagination}",
         fields = base_fields,
         pagination = pagination
     );
@@ -216,12 +219,53 @@ template = """
 engine = "tera"  # Jinja2-like syntax
 ```
 
-#### 4. **Build Script Configuration**
+#### 4. **Eager Macro Evaluation**
+
+The problem: Many Rust macros (like `sqlx::query!`) expect string literals, but see unexpanded macro calls instead:
+
+```rust
+// ❌ This fails - sqlx::query! sees the tomplate! macro, not its result
+sqlx::query!(tomplate!("select_user", id = "5"))
+    .fetch_one(&pool)
+    .await?;
+```
+
+The solution: `tomplate_eager!` walks the token tree and expands `tomplate!` and `concat!` calls first:
+
+```rust
+// ✅ This works - tomplate_eager! expands inner macros before sqlx::query! runs
+tomplate_eager! {
+    sqlx::query!(tomplate!("select_user", id = "5"))
+        .fetch_one(&pool)
+        .await?
+}
+```
+
+You can also use it for complex compositions:
+
+```rust
+tomplate_eager! {
+    // Combine multiple templates with concat!
+    const UNION_QUERY: &str = concat!(
+        tomplate!("select_user", fields = "id, 'user' as type", condition = "1=1"),
+        " UNION ALL ",
+        tomplate!("select_posts", fields = "id, 'post' as type", condition = "1=1")
+    );
+    
+    // Use in any macro that needs string literals
+    diesel::sql_query(tomplate!("complex_query", table = "users"))
+        .execute(&conn)?;
+}
+```
+
+This makes tomplate compatible with any macro that expects string literals, solving the macro expansion order problem elegantly.
+
+#### 5. **Build Script Configuration**
 
 ```rust
 // build.rs
 fn main() {
-    mosaic::Builder::new()
+    tomplate::Builder::new()
         .default_engine("handlebars")
         .discover_pattern("**/*.stencil.toml")
         .discover_pattern("**/*.stencil")
@@ -239,16 +283,16 @@ The original motivation - build complex SQL queries without string concatenation
 
 ```rust
 tomplate! {
-    let user_columns = template!("id, username, email, created_at");
-    let active_check = template!("status = 'active' AND verified = true");
+    let user_columns = tomplate!("id, username, email, created_at");
+    let active_check = tomplate!("status = 'active' AND verified = true");
     
-    const GET_ACTIVE_USERS = template!(
+    const GET_ACTIVE_USERS = tomplate!(
         "SELECT {columns} FROM users WHERE {condition}",
         columns = user_columns,
         condition = active_check
     );
     
-    const COUNT_ACTIVE_USERS = template!(
+    const COUNT_ACTIVE_USERS = tomplate!(
         "SELECT COUNT(*) FROM users WHERE {condition}",
         condition = active_check
     );
@@ -261,17 +305,17 @@ Generate environment-specific configurations at compile time:
 
 ```rust
 tomplate! {
-    let base_config = template!("base_nginx_config");
+    let base_config = tomplate!("base_nginx_config");
     
     #[cfg(feature = "production")]
-    const NGINX_CONFIG = template!("nginx_with_ssl",
+    const NGINX_CONFIG = tomplate!("nginx_with_ssl",
         base = base_config,
         domain = "example.com",
         ssl_cert = "/etc/ssl/prod.crt"
     );
     
     #[cfg(not(feature = "production"))]
-    const NGINX_CONFIG = template!("nginx_simple",
+    const NGINX_CONFIG = tomplate!("nginx_simple",
         base = base_config,
         port = 8080
     );
@@ -284,12 +328,12 @@ Build complex GraphQL queries from fragments:
 
 ```rust
 tomplate! {
-    let user_fragment = template!("fragment_user");
-    let post_fragment = template!("fragment_post",
+    let user_fragment = tomplate!("fragment_user");
+    let post_fragment = tomplate!("fragment_post",
         author = user_fragment
     );
     
-    const FEED_QUERY = template!("query_feed",
+    const FEED_QUERY = tomplate!("query_feed",
         posts = post_fragment,
         user = user_fragment
     );
@@ -302,18 +346,18 @@ Generate HTML at compile time:
 
 ```rust
 tomplate! {
-    let header = template!("site_header", title = "My Site");
-    let footer = template!("site_footer", year = "2024");
+    let header = tomplate!("site_header", title = "My Site");
+    let footer = tomplate!("site_footer", year = "2024");
     
-    const HOME_PAGE = template!("page_layout",
+    const HOME_PAGE = tomplate!("page_layout",
         header = header,
-        content = template!("home_content"),
+        content = tomplate!("home_content"),
         footer = footer
     );
     
-    const ABOUT_PAGE = template!("page_layout",
+    const ABOUT_PAGE = tomplate!("page_layout",
         header = header,
-        content = template!("about_content"),
+        content = tomplate!("about_content"),
         footer = footer
     );
 }
@@ -321,12 +365,13 @@ tomplate! {
 
 ### Comparison with Alternatives
 
-| Feature | Mosaic | Runtime Templates (Tera/Handlebars) | macro_rules! | const_format |
-|---------|---------|---------------------------------------|--------------|--------------|
+| Feature | Tomplate | Runtime Templates (Tera/Handlebars) | macro_rules! | const_format |
+|---------|----------|---------------------------------------|--------------|--------------|
 | Runtime Overhead | None ✅ | Parse + Process ❌ | None ✅ | None ✅ |
 | Template Engines | Multiple ✅ | Single ⚠️ | None ❌ | None ❌ |
 | Composition | Advanced ✅ | Limited ⚠️ | Manual ⚠️ | None ❌ |
 | File-based | Yes ✅ | Yes ✅ | No ❌ | No ❌ |
+| Works in Other Macros | Yes ✅ | N/A | Limited ⚠️ | Limited ⚠️ |
 | Learning Curve | Moderate | Low | High | Low |
 | IDE Support | Good ✅ | Excellent ✅ | Poor ❌ | Good ✅ |
 | Complex Logic | Yes ✅ | Yes ✅ | Limited ⚠️ | No ❌ |
@@ -358,15 +403,15 @@ tomplate! {
 
 ### Architecture Overview
 
-Mosaic consists of three main components:
+Tomplate consists of three main components:
 
-1. **Build Script Library** (`mosaic::Builder`)
+1. **Build Script Library** (`tomplate::Builder`)
    - Discovers template files
    - Processes TOML/JSON template definitions
    - Generates a unified registry
    - Handles template engine initialization
 
-2. **Proc Macro** (`mosaic!` macro)
+2. **Proc Macro** (`tomplate!` macro)
    - Parses the composition block syntax
    - Manages scoped variable bindings
    - Processes template references
@@ -401,7 +446,7 @@ tomplate/
 
 #### 1.2 Basic Dependencies
 ```toml
-# mosaic/Cargo.toml
+# tomplate/Cargo.toml
 [dependencies]
 handlebars = { version = "5.0", optional = true }
 tera = { version = "1.19", optional = true }
@@ -413,7 +458,7 @@ toml = "0.8"
 default = ["handlebars", "simple"]
 all-engines = ["handlebars", "tera", "minijinja"]
 
-# mosaic-macros/Cargo.toml
+# tomplate-macros/Cargo.toml
 [dependencies]
 proc-macro2 = "1.0"
 quote = "1.0"
@@ -459,11 +504,11 @@ schema = {}      # Optional: parameter validation
 // Generate unified registry file
 fn generate_registry(templates: HashMap<String, Template>) {
     let out_dir = env::var("OUT_DIR").unwrap();
-    let registry_path = Path::new(&out_dir).join("mosaic_registry.rs");
+    let registry_path = Path::new(&out_dir).join("tomplate_registry.rs");
     
     // Write registry as Rust code
     let mut file = File::create(registry_path).unwrap();
-    writeln!(file, "pub const MOSAIC_REGISTRY: &str = r#\"{}\"#;",
+    writeln!(file, "pub const TOMPLATE_REGISTRY: &str = r#\"{}\"#;",
         toml::to_string(&templates).unwrap()
     );
 }
@@ -609,10 +654,10 @@ schema = {
 ```rust
 tomplate! {
     #[cfg(feature = "postgres")]
-    const QUERY = template!("postgres_syntax");
+    const QUERY = tomplate!("postgres_syntax");
     
     #[cfg(feature = "sqlite")]
-    const QUERY = template!("sqlite_syntax");
+    const QUERY = tomplate!("sqlite_syntax");
 }
 ```
 
