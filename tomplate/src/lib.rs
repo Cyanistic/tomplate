@@ -1,3 +1,5 @@
+#![no_std]
+
 //! # Tomplate: TOML-Based Compile-Time Template Composition
 //!
 //! Tomplate is a powerful compile-time template engine for Rust that processes templates

@@ -5,6 +5,7 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+readme = "../README.md"
 description = "Procedural macros for the tomplate TOML-based template composition library"
 keywords.workspace = true
 categories.workspace = true
@@ -13,7 +14,7 @@ categories.workspace = true
 proc-macro = true
 
 [dependencies]
-tomplate-build = { path = "../tomplate-build" }
+tomplate-build = { version = "0.1" }
 proc-macro2.workspace = true
 quote.workspace = true
 syn.workspace = true

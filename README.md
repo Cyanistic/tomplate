@@ -2,13 +2,14 @@
 
 [![Crates.io](https://img.shields.io/crates/v/tomplate.svg)](https://crates.io/crates/tomplate)
 [![Documentation](https://docs.rs/tomplate/badge.svg)](https://docs.rs/tomplate)
-[![License](https://img.shields.io/crates/l/tomplate.svg)](LICENSE)
+[![License](https://img.shields.io/crates/l/tomplate.svg)](LICENSE-MIT)
 
 Tomplate is a powerful compile-time template engine for Rust that processes templates at compile time, resulting in zero runtime overhead. Templates are defined in TOML files and can use various template engines including Handlebars, Tera, and MiniJinja.
 
 ## ✨ Features
 
 - **🚀 Zero Runtime Overhead** - All template processing happens at compile time
+- **🔧 `#[no_std]` Compatible** - Works in embedded and bare-metal environments
 - **🧩 Template Composition** - Build complex templates from reusable parts
 - **🎯 Multiple Template Engines** - Choose from Simple, Handlebars, Tera, or MiniJinja
 - **📁 File Organization** - Store templates in `.tomplate.toml` files
@@ -282,12 +283,12 @@ tomplate! {
 
 | Feature | Tomplate | Runtime Templates | macro_rules! | const_format |
 |---------|----------|-------------------|--------------|--------------|
-| Runtime Overhead | None ✅ | High ❌ | None ✅ | None ✅ |
-| Template Engines | Multiple ✅ | Single ⚠️ | None ❌ | None ❌ |
-| Composition | Advanced ✅ | Limited ⚠️ | Manual ⚠️ | None ❌ |
-| File-based | Yes ✅ | Yes ✅ | No ❌ | No ❌ |
-| Macro Compatible | Yes ✅ | No ❌ | Limited ⚠️ | Limited ⚠️ |
-| Complex Logic | Yes ✅ | Yes ✅ | Limited ⚠️ | No ❌ |
+| Runtime Overhead | ✅ None | ❌ High | ✅ None | ✅ None |
+| Template Engines | ✅ Multiple | ⚠️ Single | ❌ None | ❌ None |
+| Composition | ✅ Advanced | ⚠️ Limited | ⚠️ Manual | ❌ None |
+| File-based | ✅ Yes | ✅ Yes | ❌ No | ❌ No |
+| Macro Compatible | ✅ Yes | ❌ No | ⚠️ Limited | ⚠️ Limited |
+| Complex Logic | ✅ Yes | ✅ Yes | ⚠️ Limited | ❌ No |
 
 ## ⚠️ Limitations
 
