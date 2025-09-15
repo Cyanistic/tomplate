@@ -147,15 +147,14 @@ fn process_template(input: TomplateInput) -> syn::Result<proc_macro2::TokenStrea
     // Get a clone of the cached templates
     let templates = templates::load_templates();
     
-    // Find the requested template
-    let template = templates
-        .get(&input.template_name)
-        .ok_or_else(|| {
-            syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!("Template '{}' not found", input.template_name),
-            )
-        })?;
+    // Try to find the template in registry, or use as inline template
+    let (template_string, engine_name) = if let Some(template) = templates.get(&input.template_name) {
+        // Found in registry
+        (template.template.clone(), template.engine.as_deref().unwrap_or("simple"))
+    } else {
+        // Not in registry, treat as inline template
+        (input.template_name.clone(), "simple")
+    };
     
     // Process parameters, expanding any nested macros
     let mut params = std::collections::HashMap::new();
@@ -179,8 +178,7 @@ fn process_template(input: TomplateInput) -> syn::Result<proc_macro2::TokenStrea
     }
     
     // Process the template with the appropriate engine
-    let engine_name = template.engine.as_deref().unwrap_or("simple");
-    let processed = engines::process(engine_name, &template.template, &params)
+    let processed = engines::process(engine_name, &template_string, &params)
         .map_err(|e| syn::Error::new(proc_macro2::Span::call_site(), e))?;
     
     // Return the processed template as a string literal

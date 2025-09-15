@@ -23,3 +23,9 @@ walkdir.workspace = true
 # For generating output
 quote.workspace = true
 proc-macro2.workspace = true
+
+[features]
+default = []
+handlebars = []
+tera = []
+minijinja = []

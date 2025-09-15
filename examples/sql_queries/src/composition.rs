@@ -24,34 +24,6 @@ pub fn composition_example() {
     println!("Post query: {}", POST_SELECT_QUERY);
 }
 
-// Example with inline templates
-pub fn inline_templates_example() {
-    // tomplate! {
-    //     // Inline templates - not from registry
-    //     let base_select = tomplate!("SELECT {fields} FROM {table}");
-    //     let where_clause = tomplate!("WHERE {condition}");
-    //     let pagination = tomplate!("LIMIT {limit} OFFSET {offset}",
-    //         limit = "10",
-    //         offset = "0"
-    //     );
-        
-    //     // Compose them together
-    //     const PAGINATED_USERS = tomplate!(
-    //         "{select} {where} {pagination}",
-    //         select = tomplate!(base_select, 
-    //             fields = "id, name", 
-    //             table = "users"
-    //         ),
-    //         where = tomplate!(where_clause, 
-    //             condition = "active = true"
-    //         ),
-    //         pagination = pagination
-    //     );
-    // }
-    
-    // println!("Paginated query: {}", PAGINATED_USERS);
-    println!("Inline templates disabled for now");
-}
 
 #[cfg(test)]
 mod tests {

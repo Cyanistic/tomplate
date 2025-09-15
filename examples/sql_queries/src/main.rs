@@ -3,6 +3,7 @@ use tomplate::tomplate;
 mod composition;
 mod eager;
 mod engines;
+mod inline;
 
 fn main() {
     println!("=== Direct Template Calls ===");
@@ -12,7 +13,8 @@ fn main() {
     composition::composition_example();
     
     println!("\n=== Inline Templates ===");
-    composition::inline_templates_example();
+    inline::inline_examples();
+    inline::inline_composition();
     
     println!("\n=== Template Engines ===");
     engines::simple_example();

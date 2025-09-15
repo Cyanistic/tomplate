@@ -1,0 +1,14 @@
+# Templates without explicit engine specification
+# Will use the default engine from Builder if configured
+
+[basic_query]
+template = "SELECT {fields} FROM {table}"
+
+[insert_query]
+template = "INSERT INTO {table} ({columns}) VALUES ({values})"
+
+[update_query]
+template = "UPDATE {table} SET {assignments} WHERE {condition}"
+
+[delete_query]
+template = "DELETE FROM {table} WHERE {condition}"

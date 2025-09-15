@@ -123,7 +123,7 @@ let users = sqlx::query(USER_QUERY).fetch_all(&pool).await?;
 
 #### File-Based Templates
 
-Create a `queries.stencil.toml`:
+Create a `queries.tomplate.toml`:
 
 ```toml
 [user_list]
@@ -135,6 +135,7 @@ template = """
 INSERT INTO users ({{columns}}) 
 VALUES ({{values}})
 """
+engine = "simple"
 ```
 
 Use in your code:
@@ -265,13 +266,21 @@ This makes tomplate compatible with any macro that expects string literals, solv
 ```rust
 // build.rs
 fn main() {
-    tomplate::Builder::new()
-        .default_engine("handlebars")
-        .discover_pattern("**/*.stencil.toml")
-        .discover_pattern("**/*.stencil")
-        .discover_directory("templates")
-        .validate_templates(true)
-        .build();
+    tomplate_build::Builder::new()
+        .add_pattern("**/*.tomplate.toml")
+        .add_pattern("templates/*.toml")
+        .build()
+        .expect("Failed to build templates");
+    
+    // Or use add_patterns for multiple at once
+    tomplate_build::Builder::new()
+        .add_patterns([
+            "**/*.tomplate.toml",
+            "templates/*.toml",
+            "config/*.toml"
+        ])
+        .build()
+        .expect("Failed to build templates");
 }
 ```
 
@@ -432,14 +441,23 @@ tomplate/
 │   ├── Cargo.toml
 │   ├── src/
 │   │   ├── lib.rs       # Public API
-│   │   ├── builder.rs   # Build script API
-│   │   └── engines/     # Template engine adapters
+│   │   └── lib.rs       # Re-exports macros
+├── tomplate-build/      # Build utilities
+│   ├── Cargo.toml
+│   └── src/
+│       ├── lib.rs       # Public build API
+│       ├── builder.rs   # Builder implementation
+│       ├── discovery.rs # Template file discovery
+│       └── amalgamator.rs # TOML merging
 ├── tomplate-macros/     # Proc macro crate
 │   ├── Cargo.toml
 │   └── src/
 │       ├── lib.rs       # Macro entry point
 │       ├── parser.rs    # Block syntax parser
-│       └── composer.rs  # Template composition logic
+│       ├── block.rs     # Composition block processing
+│       ├── scope.rs     # Variable scope management
+│       ├── engines/     # Template engine adapters
+│       └── eager.rs     # Eager macro evaluation
 └── examples/
     └── sql_queries/     # Example project
 ```
@@ -455,8 +473,10 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"
 
 [features]
-default = ["handlebars", "simple"]
-all-engines = ["handlebars", "tera", "minijinja"]
+default = ["simple"]
+handlebars = ["tomplate-macros/handlebars"]
+tera = ["tomplate-macros/tera"]
+minijinja = ["tomplate-macros/minijinja"]
 
 # tomplate-macros/Cargo.toml
 [dependencies]
@@ -598,7 +618,6 @@ fn generate_output(scope: BindingScope) -> TokenStream {
 ```rust
 pub trait TemplateEngine {
     fn process(&self, template: &str, params: &HashMap<String, Value>) -> Result<String, Error>;
-    fn validate(&self, template: &str) -> Result<(), Error>;
 }
 ```
 

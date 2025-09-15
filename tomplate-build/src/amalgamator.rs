@@ -1,9 +1,12 @@
-use crate::types::{Error, Result, Template};
+use crate::types::{Engine, Error, Result, Template};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-pub fn amalgamate_templates(template_files: &[impl AsRef<Path>]) -> Result<String> {
+pub fn amalgamate_templates(
+    template_files: &[impl AsRef<Path>], 
+    default_engine: Option<Engine>
+) -> Result<String> {
     let mut all_templates: HashMap<String, Template> = HashMap::new();
     
     for file_path in template_files {
@@ -11,11 +14,20 @@ pub fn amalgamate_templates(template_files: &[impl AsRef<Path>]) -> Result<Strin
         let content = fs::read_to_string(file_path)?;
         
         // Parse the TOML file
-        let templates: HashMap<String, Template> = toml::from_str(&content)
+        let mut templates: HashMap<String, Template> = toml::from_str(&content)
             .map_err(|e| {
                 eprintln!("Error parsing {}: {}", file_path.display(), e);
                 e
             })?;
+        
+        // Apply default engine if not specified
+        if let Some(default) = default_engine {
+            for template in templates.values_mut() {
+                if template.engine.is_none() {
+                    template.engine = Some(default.to_string());
+                }
+            }
+        }
         
         // Merge templates, checking for duplicates
         for (name, template) in templates {
