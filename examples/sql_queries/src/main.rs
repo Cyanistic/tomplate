@@ -1,6 +1,19 @@
 use tomplate::tomplate;
 
+mod composition;
+
 fn main() {
+    println!("=== Direct Template Calls ===");
+    direct_template_examples();
+    
+    println!("\n=== Composition Blocks ===");
+    composition::composition_example();
+    
+    println!("\n=== Inline Templates ===");
+    composition::inline_templates_example();
+}
+
+fn direct_template_examples() {
     // Simple template usage
     const SIMPLE_QUERY: &str = tomplate!("select_user",
         fields = "id, name",

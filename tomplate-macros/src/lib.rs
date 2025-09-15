@@ -1,17 +1,40 @@
+mod block;
 mod engines;
+mod parser;
+mod scope;
 mod templates;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, punctuated::Punctuated, Expr, Lit, Token, ExprMacro};
+use syn::{punctuated::Punctuated, Expr, Lit, Token, ExprMacro};
 
 #[proc_macro]
 pub fn tomplate(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as TomplateInput);
-    
-    match process_template(input) {
-        Ok(output) => output.into(),
-        Err(err) => err.to_compile_error().into(),
+    // Try to parse as a composition block first
+    let input_clone = input.clone();
+    match syn::parse::<parser::CompositionBlock>(input_clone) {
+        Ok(block) => {
+            // Successfully parsed as a block
+            match block::process_block(block) {
+                Ok(output) => output.into(),
+                Err(err) => err.to_compile_error().into(),
+            }
+        }
+        Err(_block_err) => {
+            // Not a block, try as direct template call
+            match syn::parse::<TomplateInput>(input) {
+                Ok(direct) => {
+                    match process_template(direct) {
+                        Ok(output) => output.into(),
+                        Err(err) => err.to_compile_error().into(),
+                    }
+                }
+                Err(direct_err) => {
+                    // Failed both parsers, return the direct error as it's more common
+                    direct_err.to_compile_error().into()
+                }
+            }
+        }
     }
 }
 
