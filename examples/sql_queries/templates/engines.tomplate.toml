@@ -1,0 +1,36 @@
+[handlebars_user_query]
+engine = "handlebars"
+template = """
+SELECT {{fields}}
+FROM users
+WHERE {{#if condition}}{{condition}}{{else}}1=1{{/if}}
+ORDER BY {{#if order}}{{order}}{{else}}id{{/if}}
+"""
+
+[tera_config]
+engine = "tera"
+template = """
+{
+  "host": "{{ host }}",
+  "port": {{ port | default(value="8080") }},
+  "debug": {{ debug | default(value="false") }}
+}
+"""
+
+[minijinja_report]
+engine = "minijinja"
+template = """
+Report for {{ name }}
+{% if items %}
+Items:
+{% for item in items %}
+  - {{ item }}
+{% endfor %}
+{% else %}
+No items found.
+{% endif %}
+"""
+
+[simple_greeting]
+engine = "simple"
+template = "Hello {name}, welcome to {place}!"

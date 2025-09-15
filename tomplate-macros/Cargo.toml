@@ -27,6 +27,5 @@ tera = { workspace = true, optional = true }
 minijinja = { workspace = true, optional = true }
 
 [features]
-default = ["handlebars", "simple"]
+default = ["simple"]
 simple = []
-all-engines = ["handlebars", "tera", "minijinja", "simple"]

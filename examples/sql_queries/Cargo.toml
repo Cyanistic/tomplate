@@ -8,3 +8,9 @@ tomplate = { path = "../../tomplate" }
 
 [build-dependencies]
 tomplate-build = { path = "../../tomplate-build" }
+
+[features]
+default = []
+handlebars = ["tomplate/handlebars"]
+tera = ["tomplate/tera"]
+minijinja = ["tomplate/minijinja"]

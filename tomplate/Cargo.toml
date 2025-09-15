@@ -10,11 +10,15 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-tomplate-macros = { path = "../tomplate-macros" }
+tomplate-macros = { path = "../tomplate-macros", default-features = false }
 
 # Re-export for convenience
 tomplate-build = { path = "../tomplate-build", optional = true }
 
 [features]
-default = []
+default = ["simple"]
 build = ["tomplate-build"]
+simple = ["tomplate-macros/simple"]
+handlebars = ["tomplate-macros/handlebars"]
+tera = ["tomplate-macros/tera"]
+minijinja = ["tomplate-macros/minijinja"]

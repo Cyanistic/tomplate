@@ -1,6 +1,7 @@
 use tomplate::tomplate;
 
 mod composition;
+mod engines;
 
 fn main() {
     println!("=== Direct Template Calls ===");
@@ -11,6 +12,18 @@ fn main() {
     
     println!("\n=== Inline Templates ===");
     composition::inline_templates_example();
+    
+    println!("\n=== Template Engines ===");
+    engines::simple_example();
+    
+    #[cfg(feature = "handlebars")]
+    engines::handlebars_example();
+    
+    #[cfg(feature = "tera")]
+    engines::tera_example();
+    
+    #[cfg(feature = "minijinja")]
+    engines::minijinja_example();
 }
 
 fn direct_template_examples() {
