@@ -1,5 +1,6 @@
 use tomplate::tomplate;
 
+mod cfg_example;
 mod composition;
 mod eager;
 mod engines;
@@ -34,6 +35,9 @@ fn main() {
     eager::simulated_sqlx_example();
     eager::nested_composition_example();
     eager::multiple_macros_example();
+    
+    println!("\n=== Cfg Attributes ===");
+    cfg_example::setup_queries();
 }
 
 fn direct_template_examples() {

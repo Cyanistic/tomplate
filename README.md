@@ -1,73 +1,21 @@
-# Tomplate: TOML-Based Compile-Time Template Composition for Rust
+# Tomplate: Zero-Runtime Template Engine for Rust
 
-## Table of Contents
+[![Crates.io](https://img.shields.io/crates/v/tomplate.svg)](https://crates.io/crates/tomplate)
+[![Documentation](https://docs.rs/tomplate/badge.svg)](https://docs.rs/tomplate)
+[![License](https://img.shields.io/crates/l/tomplate.svg)](LICENSE)
 
-1. [README - User Documentation](#readme---user-documentation)
-   - [Overview](#overview)
-   - [Motivation](#motivation)
-   - [Key Features](#key-features)
-   - [Installation](#installation)
-   - [Quick Start](#quick-start)
-   - [Core Capabilities](#core-capabilities)
-   - [Use Cases](#use-cases)
-   - [Comparison with Alternatives](#comparison-with-alternatives)
-   - [Performance](#performance)
-   - [Limitations](#limitations)
-2. [Implementation Plan](#implementation-plan)
-   - [Architecture Overview](#architecture-overview)
-   - [Phase 1: Core Infrastructure](#phase-1-core-infrastructure)
-   - [Phase 2: Template Discovery](#phase-2-template-discovery)
-   - [Phase 3: Composition Block](#phase-3-composition-block)
-   - [Phase 4: Template Engines](#phase-4-template-engines)
-   - [Phase 5: Advanced Features](#phase-5-advanced-features)
-   - [Technical Challenges](#technical-challenges)
+Tomplate is a powerful compile-time template engine for Rust that processes templates at compile time, resulting in zero runtime overhead. Templates are defined in TOML files and can use various template engines including Handlebars, Tera, and MiniJinja.
 
----
+## ✨ Features
 
-## README - User Documentation
+- **🚀 Zero Runtime Overhead** - All template processing happens at compile time
+- **🧩 Template Composition** - Build complex templates from reusable parts
+- **🎯 Multiple Template Engines** - Choose from Simple, Handlebars, Tera, or MiniJinja
+- **📁 File Organization** - Store templates in `.tomplate.toml` files
+- **🔍 Compile-Time Validation** - Catch template errors during compilation
+- **⚡ Eager Evaluation** - Solve macro expansion order issues with `tomplate_eager!`
 
-### Overview
-
-Tomplate is a revolutionary compile-time template composition library for Rust that processes templates at compile time using familiar templating engines like Handlebars and Tera. Unlike traditional templating solutions, Tomplate evaluates all templates during compilation, resulting in zero runtime overhead and compile-time validation of your templates.
-
-The name "Tomplate" is a clever play on TOML + template, reflecting the library's unique approach of using TOML files for template configuration.
-
-### Motivation
-
-The Rust ecosystem has excellent runtime templating solutions, but compile-time templating has been limited to basic string manipulation with `macro_rules!` or `const_format`. This creates several pain points:
-
-1. **Runtime Overhead**: Traditional template engines parse and process templates at runtime, adding latency and memory usage
-2. **Complex Macro Syntax**: Building complex strings with `macro_rules!` quickly becomes unreadable
-3. **Limited Compile-Time Tools**: `concat!` and `format_args!` only support basic substitution
-4. **No Composition**: Existing solutions don't allow building templates from reusable parts
-5. **No Template Reuse**: Can't share template fragments across different compositions
-
-Tomplate was born from a real need: building complex SQL queries at compile time without the syntactic nightmare of nested macros or the runtime cost of template processing.
-
-### Key Features
-
-#### 🚀 **Zero Runtime Overhead**
-All template processing happens at compile time. Your final binary contains only static strings.
-
-#### 🧩 **Template Composition**
-Build complex templates from simple, reusable parts using an innovative scoped block syntax.
-
-#### 🎯 **Multiple Template Engines**
-Use Handlebars, Tera, MiniJinja, or a simple substitution engine - whatever fits your needs.
-
-#### 📁 **File-Based Templates**
-Organize templates in `.tomplate.toml` files that are automatically discovered and processed.
-
-#### 🔍 **Compile-Time Validation**
-Catch template errors during compilation, not at runtime.
-
-#### 🏗️ **Scoped Composition Blocks**
-Define local template variables and export constants using familiar Rust syntax.
-
-#### ⚡ **Eager Macro Evaluation**
-Use `tomplate_eager!` to solve macro expansion order issues, enabling tomplate in contexts like `sqlx::query!`.
-
-### Installation
+## 📦 Installation
 
 ```toml
 [dependencies]
@@ -75,721 +23,306 @@ tomplate = "0.1"
 
 [build-dependencies]
 tomplate-build = "0.1"
+
+# Optional: Enable additional template engines
+# [dependencies.tomplate]
+# version = "0.1"
+# features = ["handlebars", "tera", "minijinja"]
 ```
 
-### Quick Start
+## 🚀 Quick Start
 
-#### Simple Inline Template
+### Step 1: Create a Build Script
+
+Create `build.rs` in your project root:
 
 ```rust
-use tomplate::tomplate;
-
-// Process a template at compile time
-const QUERY: &str = tomplate!("SELECT {fields} FROM {table}", 
-    fields = "id, name",
-    table = "users"
-);
-
-assert_eq!(QUERY, "SELECT id, name FROM users");
-```
-
-#### Template Composition
-
-```rust
-use tomplate::tomplate;
-
-tomplate! {
-    // Define local template helpers
-    let user_fields = tomplate!("user_fields");
-    let where_active = tomplate!("where_active");
-    
-    // Export as real Rust constants
-    const USER_QUERY = tomplate!("select_query",
-        fields = user_fields,
-        table = "users",
-        where = where_active
-    );
-    
-    const POST_QUERY = tomplate!("select_query",
-        fields = "id, title, content",
-        table = "posts",
-        where = where_active
-    );
-}
-
-// Use the generated constants
-let users = sqlx::query(USER_QUERY).fetch_all(&pool).await?;
-```
-
-#### File-Based Templates
-
-Create a `queries.tomplate.toml`:
-
-```toml
-[user_list]
-template = "SELECT {{fields}} FROM users WHERE {{condition | default: '1=1'}}"
-engine = "handlebars"
-
-[user_insert]
-template = """
-INSERT INTO users ({{columns}}) 
-VALUES ({{values}})
-"""
-engine = "simple"
-```
-
-Use in your code:
-
-```rust
-const LIST_USERS: &str = tomplate!("user_list",
-    fields = "id, name, email",
-    condition = "active = true"
-);
-```
-
-### Core Capabilities
-
-#### 1. **Template Composition Through Nesting**
-
-Since Tomplate operates at compile time, templates can be composed by nesting template calls:
-
-```rust
-const COMPLEX_QUERY: &str = tomplate!("union_query",
-    first = tomplate!("select_query", 
-        table = "users",
-        fields = "id, name"
-    ),
-    second = tomplate!("select_query",
-        table = "archived_users", 
-        fields = "id, name"
-    )
-);
-```
-
-#### 2. **Scoped Composition Blocks**
-
-The killer feature: define template variables in a scope and compose them:
-
-```rust
-tomplate! {
-    // Local bindings - only visible in this block
-    let base_fields = tomplate!("id, name, created_at");
-    let pagination = tomplate!("LIMIT {limit} OFFSET {offset}",
-        limit = 10,
-        offset = 0
-    );
-    
-    // Export constants - available outside the block
-    const USERS_PAGE_1 = tomplate!("SELECT {fields} FROM users {pagination}",
-        fields = base_fields,
-        pagination = pagination
-    );
-    
-    const POSTS_PAGE_1 = tomplate!("SELECT {fields} FROM posts {pagination}",
-        fields = base_fields,
-        pagination = pagination
-    );
-}
-```
-
-#### 3. **Multiple Template Engines**
-
-Configure different engines per template:
-
-```toml
-[simple_template]
-template = "Hello {name}"
-engine = "simple"  # Basic substitution
-
-[complex_template]
-template = """
-{{#if users}}
-  {{#each users}}
-    <li>{{this.name}}</li>
-  {{/each}}
-{{/if}}
-"""
-engine = "handlebars"  # Full Handlebars features
-
-[jinja_template]
-template = """
-{% for item in items %}
-  {{ item.name | upper }}
-{% endfor %}
-"""
-engine = "tera"  # Jinja2-like syntax
-```
-
-#### 4. **Eager Macro Evaluation**
-
-The problem: Many Rust macros (like `sqlx::query!`) expect string literals, but see unexpanded macro calls instead:
-
-```rust
-// ❌ This fails - sqlx::query! sees the tomplate! macro, not its result
-sqlx::query!(tomplate!("select_user", id = "5"))
-    .fetch_one(&pool)
-    .await?;
-```
-
-The solution: `tomplate_eager!` walks the token tree and expands `tomplate!` and `concat!` calls first:
-
-```rust
-// ✅ This works - tomplate_eager! expands inner macros before sqlx::query! runs
-tomplate_eager! {
-    sqlx::query!(tomplate!("select_user", id = "5"))
-        .fetch_one(&pool)
-        .await?
-}
-```
-
-You can also use it for complex compositions:
-
-```rust
-tomplate_eager! {
-    // Combine multiple templates with concat!
-    const UNION_QUERY: &str = concat!(
-        tomplate!("select_user", fields = "id, 'user' as type", condition = "1=1"),
-        " UNION ALL ",
-        tomplate!("select_posts", fields = "id, 'post' as type", condition = "1=1")
-    );
-    
-    // Use in any macro that needs string literals
-    diesel::sql_query(tomplate!("complex_query", table = "users"))
-        .execute(&conn)?;
-}
-```
-
-This makes tomplate compatible with any macro that expects string literals, solving the macro expansion order problem elegantly.
-
-#### 5. **Build Script Configuration**
-
-```rust
-// build.rs
 fn main() {
-    tomplate_build::Builder::new()
-        .add_pattern("**/*.tomplate.toml")
-        .add_pattern("templates/*.toml")
-        .build()
-        .expect("Failed to build templates");
-    
-    // Or use add_patterns for multiple at once
     tomplate_build::Builder::new()
         .add_patterns([
             "**/*.tomplate.toml",
-            "templates/*.toml",
-            "config/*.toml"
+            "templates/*.toml"
         ])
         .build()
         .expect("Failed to build templates");
 }
 ```
 
-### Use Cases
+### Step 2: Define Templates
 
-#### SQL Query Building
+Create `templates/queries.tomplate.toml`:
 
-The original motivation - build complex SQL queries without string concatenation hell:
+```toml
+[user_query]
+template = "SELECT {fields} FROM users WHERE {condition}"
+
+[user_insert]
+template = """
+INSERT INTO users ({columns}) 
+VALUES ({values})
+RETURNING id
+"""
+
+[paginated_query]
+template = "SELECT * FROM {table} LIMIT {limit} OFFSET {offset}"
+```
+
+### Step 3: Use Templates in Your Code
+
+```rust
+use tomplate::tomplate;
+
+// Simple template usage
+const GET_USER: &str = tomplate!("user_query",
+    fields = "id, name, email",
+    condition = "id = $1"
+);
+
+// Inline templates (when not found in registry)
+const GREETING: &str = tomplate!(
+    "Hello {name}, welcome to {place}!",
+    name = "Alice",
+    place = "Wonderland"
+);
+
+// Use the generated SQL in your application
+async fn get_user(pool: &PgPool, id: i32) -> Result<User> {
+    sqlx::query_as!(User, GET_USER, id)
+        .fetch_one(pool)
+        .await
+}
+```
+
+## 🎨 Major Features
+
+### Template Composition Blocks
+
+Build complex templates from reusable parts:
 
 ```rust
 tomplate! {
-    let user_columns = tomplate!("id, username, email, created_at");
-    let active_check = tomplate!("status = 'active' AND verified = true");
-    
-    const GET_ACTIVE_USERS = tomplate!(
-        "SELECT {columns} FROM users WHERE {condition}",
-        columns = user_columns,
-        condition = active_check
+    // Local variables - reusable within the block
+    let base_fields = tomplate!("id, name, created_at");
+    let active_condition = tomplate!("status = 'active'");
+    let pagination = tomplate!("LIMIT {limit} OFFSET {offset}",
+        limit = "10",
+        offset = "0"
     );
     
-    const COUNT_ACTIVE_USERS = tomplate!(
+    // Export constants - available outside the block
+    const GET_ACTIVE_USERS = tomplate!(
+        "SELECT {fields} FROM users WHERE {condition} {page}",
+        fields = base_fields,
+        condition = active_condition,
+        page = pagination
+    );
+    
+    const COUNT_ACTIVE = tomplate!(
         "SELECT COUNT(*) FROM users WHERE {condition}",
-        condition = active_check
+        condition = active_condition
+    );
+}
+
+// Use the exported constants
+let users = sqlx::query!(GET_ACTIVE_USERS).fetch_all(&pool).await?;
+```
+
+### Multiple Template Engines
+
+Choose the right engine for each template:
+
+```toml
+# Simple substitution (default)
+[greeting]
+template = "Hello {name}!"
+engine = "simple"
+
+# Handlebars for logic
+[user_list]
+template = """
+{{#if users}}
+  {{#each users}}
+    <li>{{name}} ({{email}})</li>
+  {{/each}}
+{{else}}
+  <li>No users found</li>
+{{/if}}
+"""
+engine = "handlebars"
+
+# Tera for filters
+[formatted_output]
+template = """
+{% for item in items %}
+  {{ item.name | upper | truncate(20) }}
+{% endfor %}
+"""
+engine = "tera"
+```
+
+### Eager Macro Evaluation
+
+Make Tomplate work with macros that expect string literals:
+
+```rust
+use tomplate::{tomplate, tomplate_eager};
+
+// Problem: sqlx::query! expects a string literal
+// ❌ This fails:
+// sqlx::query!(tomplate!("select_user", id = "5"))
+
+// Solution: Use tomplate_eager! to expand inner macros first
+// ✅ This works:
+tomplate_eager! {
+    sqlx::query!(tomplate!("select_user", id = "5"))
+        .fetch_one(&pool)
+        .await?
+}
+
+// Also works with concat! for combining templates
+tomplate_eager! {
+    const UNION_QUERY: &str = concat!(
+        tomplate!("get_users", status = "active"),
+        " UNION ALL ",
+        tomplate!("get_users", status = "pending")
     );
 }
 ```
 
-#### Configuration Generation
+### Nested Template Composition
+
+Templates can use other templates as parameters:
+
+```rust
+const COMPLEX_QUERY: &str = tomplate!("union_query",
+    first = tomplate!("select_with_filter", 
+        table = "users",
+        filter = "age > 18"
+    ),
+    second = tomplate!("select_with_filter",
+        table = "accounts",
+        filter = "active = true"
+    )
+);
+```
+
+## 🎯 Use Cases
+
+### SQL Query Building
+
+Build complex, reusable SQL queries without runtime string manipulation:
+
+```rust
+tomplate! {
+    let user_fields = tomplate!("u.id, u.name, u.email");
+    let post_fields = tomplate!("p.id, p.title, p.created_at");
+    let join_clause = tomplate!("JOIN posts p ON p.user_id = u.id");
+    
+    const USER_WITH_POSTS = tomplate!(
+        "SELECT {user_fields}, {post_fields} FROM users u {join} WHERE u.id = $1",
+        user_fields = user_fields,
+        post_fields = post_fields,
+        join = join_clause
+    );
+}
+```
+
+### Configuration Generation
 
 Generate environment-specific configurations at compile time:
 
 ```rust
 tomplate! {
-    let base_config = tomplate!("base_nginx_config");
-    
-    #[cfg(feature = "production")]
-    const NGINX_CONFIG = tomplate!("nginx_with_ssl",
-        base = base_config,
-        domain = "example.com",
-        ssl_cert = "/etc/ssl/prod.crt"
+    #[cfg(debug_assertions)]
+    const API_ENDPOINT = tomplate!("http://localhost:3000/api/{version}",
+        version = "v1"
     );
     
-    #[cfg(not(feature = "production"))]
-    const NGINX_CONFIG = tomplate!("nginx_simple",
-        base = base_config,
-        port = 8080
+    #[cfg(not(debug_assertions))]
+    const API_ENDPOINT = tomplate!("https://api.example.com/{version}",
+        version = "v1"
     );
 }
 ```
 
-#### GraphQL Schema Composition
+### GraphQL Query Composition
 
-Build complex GraphQL queries from fragments:
+Build GraphQL queries from reusable fragments:
 
 ```rust
 tomplate! {
-    let user_fragment = tomplate!("fragment_user");
-    let post_fragment = tomplate!("fragment_post",
-        author = user_fragment
-    );
+    let user_fragment = tomplate!("id name email avatar");
+    let post_fragment = tomplate!("id title content createdAt");
     
-    const FEED_QUERY = tomplate!("query_feed",
-        posts = post_fragment,
-        user = user_fragment
+    const GET_USER_FEED = tomplate!(
+        "query GetFeed($userId: ID!) {
+            user(id: $userId) { {user_fields} }
+            posts(userId: $userId) { {post_fields} }
+        }",
+        user_fields = user_fragment,
+        post_fields = post_fragment
     );
 }
 ```
 
-#### Static Site Generation
+## 📊 Performance
 
-Generate HTML at compile time:
+### Compile Time
+- Initial compilation: ~10-30% increase (templates are processed once)
+- Incremental builds: Minimal impact (only changed templates reprocessed)
+- Templates are cached during build
 
-```rust
-tomplate! {
-    let header = tomplate!("site_header", title = "My Site");
-    let footer = tomplate!("site_footer", year = "2024");
-    
-    const HOME_PAGE = tomplate!("page_layout",
-        header = header,
-        content = tomplate!("home_content"),
-        footer = footer
-    );
-    
-    const ABOUT_PAGE = tomplate!("page_layout",
-        header = header,
-        content = tomplate!("about_content"),
-        footer = footer
-    );
-}
-```
+### Runtime Performance
+- **Zero overhead**: Templates become `const &str` in your binary
+- **No allocations**: All strings are `&'static str`
+- **No parsing**: Templates are fully processed at compile time
+- **Optimized binary**: Compiler can optimize const strings
 
-### Comparison with Alternatives
+## 🔄 Comparison with Alternatives
 
-| Feature | Tomplate | Runtime Templates (Tera/Handlebars) | macro_rules! | const_format |
-|---------|----------|---------------------------------------|--------------|--------------|
-| Runtime Overhead | None ✅ | Parse + Process ❌ | None ✅ | None ✅ |
+| Feature | Tomplate | Runtime Templates | macro_rules! | const_format |
+|---------|----------|-------------------|--------------|--------------|
+| Runtime Overhead | None ✅ | High ❌ | None ✅ | None ✅ |
 | Template Engines | Multiple ✅ | Single ⚠️ | None ❌ | None ❌ |
 | Composition | Advanced ✅ | Limited ⚠️ | Manual ⚠️ | None ❌ |
 | File-based | Yes ✅ | Yes ✅ | No ❌ | No ❌ |
-| Works in Other Macros | Yes ✅ | N/A | Limited ⚠️ | Limited ⚠️ |
-| Learning Curve | Moderate | Low | High | Low |
-| IDE Support | Good ✅ | Excellent ✅ | Poor ❌ | Good ✅ |
+| Macro Compatible | Yes ✅ | No ❌ | Limited ⚠️ | Limited ⚠️ |
 | Complex Logic | Yes ✅ | Yes ✅ | Limited ⚠️ | No ❌ |
 
-### Performance
+## ⚠️ Limitations
 
-#### Compile Time Impact
-- Initial compilation: ~10-30% increase depending on template complexity
-- Incremental compilation: Minimal impact (templates only reprocessed when changed)
-- Template caching: Build script caches processed templates
+1. **Compile-time only**: All template data must be known at compile time
+2. **Const context**: Can't use runtime variables or function results
+3. **Build time**: Heavy template use increases compilation time
+4. **Binary size**: All generated strings are included in the binary
 
-#### Runtime Performance
-- **Zero overhead**: Templates are const strings in the final binary
-- **No allocation**: All strings are &'static str
-- **No parsing**: Templates are pre-processed
-- **Binary size**: Slightly larger due to expanded templates
+## 💡 Why I Built Tomplate
 
-### Limitations
+I created Tomplate out of a specific frustration: I wanted to reuse SQL query fragments across multiple `sqlx::query!` macro calls, but Rust's macro system made this surprisingly difficult. The `sqlx::query!` macro requires a string literal - you can't pass it a const variable or the result of another macro. This meant I was either duplicating SQL fragments everywhere or doing error-prone string concatenation at runtime.
 
-1. **No Runtime Data**: Templates must be fully resolvable at compile time
-2. **Const Context**: Can't use runtime variables or function results
-3. **Compilation Time**: Heavy template use increases build times
-4. **Debugging**: Template errors appear as macro expansion errors
-5. **Binary Size**: All template variations are included in the binary
+Initially, I just wanted a way to compose SQL queries at compile time. But as I built the solution, I realized this pattern could solve a much broader problem. Many Rust macros expect string literals, and there was no good way to build those strings from reusable parts at compile time. 
 
----
+Tomplate grew from this simple need into a complete compile-time template system. Now you can:
+- Define reusable template fragments in TOML files
+- Compose complex templates from simple parts
+- Use powerful template engines like Handlebars at compile time
+- Generate any kind of string (SQL, HTML, GraphQL, configs) with zero runtime cost
 
-## Implementation Plan
+What started as a workaround for `sqlx::query!` became a general-purpose tool for anyone who wants the power of template engines without the runtime overhead. If you've ever been frustrated by Rust's macro limitations or wanted to eliminate runtime template processing, Tomplate might be exactly what you need.
 
-### Architecture Overview
+## 📚 Documentation
 
-Tomplate consists of three main components:
+For detailed documentation and examples, visit [docs.rs/tomplate](https://docs.rs/tomplate).
 
-1. **Build Script Library** (`tomplate::Builder`)
-   - Discovers template files
-   - Processes TOML/JSON template definitions
-   - Generates a unified registry
-   - Handles template engine initialization
+## 📄 License
 
-2. **Proc Macro** (`tomplate!` macro)
-   - Parses the composition block syntax
-   - Manages scoped variable bindings
-   - Processes template references
-   - Generates final const declarations
+Licensed under either of:
 
-3. **Template Engine Adapters**
-   - Unified interface for different engines
-   - Compile-time template processing
-   - Error handling and validation
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
-### Phase 1: Core Infrastructure
+at your option.
 
-#### 1.1 Project Structure
-```
-tomplate/
-├── Cargo.toml           # Workspace root
-├── tomplate/            # Main library
-│   ├── Cargo.toml
-│   ├── src/
-│   │   ├── lib.rs       # Public API
-│   │   └── lib.rs       # Re-exports macros
-├── tomplate-build/      # Build utilities
-│   ├── Cargo.toml
-│   └── src/
-│       ├── lib.rs       # Public build API
-│       ├── builder.rs   # Builder implementation
-│       ├── discovery.rs # Template file discovery
-│       └── amalgamator.rs # TOML merging
-├── tomplate-macros/     # Proc macro crate
-│   ├── Cargo.toml
-│   └── src/
-│       ├── lib.rs       # Macro entry point
-│       ├── parser.rs    # Block syntax parser
-│       ├── block.rs     # Composition block processing
-│       ├── scope.rs     # Variable scope management
-│       ├── engines/     # Template engine adapters
-│       └── eager.rs     # Eager macro evaluation
-└── examples/
-    └── sql_queries/     # Example project
-```
+## 🤝 Contributing
 
-#### 1.2 Basic Dependencies
-```toml
-# tomplate/Cargo.toml
-[dependencies]
-handlebars = { version = "5.0", optional = true }
-tera = { version = "1.19", optional = true }
-minijinja = { version = "1.0", optional = true }
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.8"
-
-[features]
-default = ["simple"]
-handlebars = ["tomplate-macros/handlebars"]
-tera = ["tomplate-macros/tera"]
-minijinja = ["tomplate-macros/minijinja"]
-
-# tomplate-macros/Cargo.toml
-[dependencies]
-proc-macro2 = "1.0"
-quote = "1.0"
-syn = { version = "2.0", features = ["full"] }
-```
-
-### Phase 2: Template Discovery
-
-#### 2.1 File Discovery System
-```rust
-// builder.rs
-impl Builder {
-    pub fn discover_pattern(mut self, pattern: &str) -> Self {
-        self.patterns.push(pattern.to_string());
-        self
-    }
-    
-    pub fn discover_directory(mut self, dir: &str) -> Self {
-        self.directories.push(dir.to_string());
-        self
-    }
-    
-    fn discover_templates(&self) -> HashMap<String, Template> {
-        // Scan filesystem for .stencil.toml, .stencil files
-        // Parse and validate templates
-        // Return unified registry
-    }
-}
-```
-
-#### 2.2 TOML Template Format
-```toml
-# Template definition schema
-[template_name]
-template = "..." # Template string or file path
-engine = "..."   # Optional: handlebars|tera|minijinja|simple
-metadata = {}    # Optional: additional metadata
-schema = {}      # Optional: parameter validation
-```
-
-#### 2.3 Registry Generation
-```rust
-// Generate unified registry file
-fn generate_registry(templates: HashMap<String, Template>) {
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let registry_path = Path::new(&out_dir).join("tomplate_registry.rs");
-    
-    // Write registry as Rust code
-    let mut file = File::create(registry_path).unwrap();
-    writeln!(file, "pub const TOMPLATE_REGISTRY: &str = r#\"{}\"#;",
-        toml::to_string(&templates).unwrap()
-    );
-}
-```
-
-### Phase 3: Composition Block
-
-#### 3.1 Syntax Parser
-```rust
-// Parser for the tomplate! { ... } block syntax
-enum Statement {
-    Let {
-        name: Ident,
-        value: TemplateCall,
-    },
-    Const {
-        name: Ident,
-        value: TemplateCall,
-    },
-    Template(TemplateCall),
-}
-
-struct TemplateCall {
-    name: String,
-    params: HashMap<String, Value>,
-}
-```
-
-#### 3.2 Dependency Resolution
-```rust
-// Track dependencies between templates
-struct DependencyGraph {
-    nodes: HashMap<String, TemplateNode>,
-    edges: Vec<(String, String)>,
-}
-
-impl DependencyGraph {
-    fn topological_sort(&self) -> Result<Vec<String>, CycleError> {
-        // Ensure templates are processed in correct order
-    }
-}
-```
-
-#### 3.3 Variable Binding Management
-```rust
-// Manage local and exported bindings
-struct BindingScope {
-    locals: HashMap<String, String>,  // let bindings
-    exports: Vec<(String, String)>,   // const bindings
-}
-
-impl BindingScope {
-    fn resolve(&self, name: &str) -> Option<String> {
-        self.locals.get(name).cloned()
-    }
-    
-    fn add_local(&mut self, name: String, value: String) {
-        self.locals.insert(name, value);
-    }
-    
-    fn add_export(&mut self, name: String, value: String) {
-        self.exports.push((name, value));
-    }
-}
-```
-
-#### 3.4 Code Generation
-```rust
-// Generate final Rust code
-fn generate_output(scope: BindingScope) -> TokenStream {
-    let mut output = TokenStream::new();
-    
-    // Generate const declarations for exports
-    for (name, value) in scope.exports {
-        output.extend(quote! {
-            const #name: &str = #value;
-        });
-    }
-    
-    output
-}
-```
-
-### Phase 4: Template Engines
-
-#### 4.1 Engine Trait
-```rust
-pub trait TemplateEngine {
-    fn process(&self, template: &str, params: &HashMap<String, Value>) -> Result<String, Error>;
-}
-```
-
-#### 4.2 Engine Implementations
-```rust
-// Simple substitution engine
-struct SimpleEngine;
-impl TemplateEngine for SimpleEngine {
-    fn process(&self, template: &str, params: &HashMap<String, Value>) -> Result<String, Error> {
-        // Basic {key} replacement
-    }
-}
-
-// Handlebars adapter
-struct HandlebarsEngine {
-    registry: Handlebars<'static>,
-}
-
-// Tera adapter
-struct TeraEngine {
-    tera: Tera,
-}
-```
-
-#### 4.3 Engine Registry
-```rust
-struct EngineRegistry {
-    engines: HashMap<String, Box<dyn TemplateEngine>>,
-    default: String,
-}
-
-impl EngineRegistry {
-    fn get(&self, name: Option<&str>) -> &dyn TemplateEngine {
-        let name = name.unwrap_or(&self.default);
-        self.engines.get(name).expect("Unknown engine")
-    }
-}
-```
-
-### Phase 5: Advanced Features
-
-#### 5.1 Template Validation
-```toml
-[strict_insert]
-template = "INSERT INTO users ({{id}}, {{name}}) VALUES ({{id_value}}, {{name_value}})"
-schema = {
-    id = { type = "integer", required = true },
-    name = { type = "string", max_length = 100 }
-}
-```
-
-#### 5.2 Conditional Compilation
-```rust
-tomplate! {
-    #[cfg(feature = "postgres")]
-    const QUERY = tomplate!("postgres_syntax");
-    
-    #[cfg(feature = "sqlite")]
-    const QUERY = tomplate!("sqlite_syntax");
-}
-```
-
-#### 5.3 Template Inheritance
-```toml
-[base_query]
-template = "SELECT {{fields}} FROM {{table}}"
-
-[extended_query]
-extends = "base_query"
-template = "{{super}} WHERE {{condition}}"
-```
-
-#### 5.4 Error Reporting
-```rust
-// Enhanced error messages with template location
-#[derive(Debug)]
-struct TemplateError {
-    template_name: String,
-    line: usize,
-    column: usize,
-    message: String,
-    suggestion: Option<String>,
-}
-```
-
-### Technical Challenges
-
-#### Challenge 1: Compile-Time String Processing
-**Problem**: Rust macros receive tokens, not evaluated strings. Constants aren't resolved during macro expansion.
-
-**Solution**: The scoped block approach where the macro maintains its own binding registry and resolves references during expansion.
-
-#### Challenge 2: Template Engine Integration
-**Problem**: Template engines are designed for runtime use, not compile-time processing.
-
-**Solution**: Use build script to pre-process templates and generate static strings. The macro then works with these pre-processed results.
-
-#### Challenge 3: Cross-Crate Template Sharing
-**Problem**: Templates defined in one crate need to be accessible in dependent crates.
-
-**Solution**: Export processed templates as public constants. Consider a registry trait for discovering templates from dependencies.
-
-#### Challenge 4: Incremental Compilation
-**Problem**: Changes to templates shouldn't trigger full rebuilds.
-
-**Solution**: 
-- Track template dependencies in build script
-- Use cargo:rerun-if-changed directives
-- Cache processed templates with content hashing
-
-#### Challenge 5: IDE Support
-**Problem**: IDE needs to understand template syntax and provide completions.
-
-**Solution**:
-- Generate TypeScript-style definition files for templates
-- Provide Language Server Protocol (LSP) implementation
-- Create IDE plugins for popular editors
-
-#### Challenge 6: Debugging Template Errors
-**Problem**: Template errors appear as opaque macro expansion errors.
-
-**Solution**:
-- Custom error types with span information
-- Generate intermediate files for debugging
-- Provide verbose mode showing expansion steps
-
-### Implementation Timeline
-
-**Week 1-2**: Core infrastructure and basic macro
-- Set up project structure
-- Implement basic mosaic! macro
-- Simple template substitution
-
-**Week 3-4**: Build script and discovery
-- File discovery system
-- TOML parsing
-- Registry generation
-
-**Week 5-6**: Composition blocks
-- Let/const binding parser
-- Dependency resolution
-- Variable substitution
-
-**Week 7-8**: Template engines
-- Engine trait and registry
-- Handlebars integration
-- Tera integration
-
-**Week 9-10**: Testing and documentation
-- Comprehensive test suite
-- Documentation
-- Examples
-
-**Week 11-12**: Polish and release
-- Performance optimization
-- Error message improvement
-- Crates.io release preparation
-
-### Success Metrics
-
-1. **Functionality**: All planned features working
-2. **Performance**: < 30% compile time increase for typical usage
-3. **Usability**: Clear documentation and helpful error messages
-4. **Adoption**: 100+ downloads in first month
-5. **Community**: At least 3 external contributors
-
-### Future Enhancements
-
-1. **Template Hot Reloading**: Development mode with file watching
-2. **WASM Support**: Compile templates to WASM for browser use
-3. **Template Marketplace**: Community template sharing
-4. **Visual Editor**: GUI for template composition
-5. **Migration Tools**: Convert from runtime templates to Mosaic
-6. **Benchmarking Suite**: Performance comparison tools
-7. **Integration Plugins**: SQLx, Diesel, GraphQL client integrations
+Contributions are welcome! Please feel free to submit a Pull Request.

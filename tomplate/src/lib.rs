@@ -13,55 +13,192 @@
 //! - **Eager Evaluation**: Solve macro expansion order issues with `tomplate_eager!`
 //! - **File-Based Organization**: Store templates in `.tomplate.toml` files
 //!
-//! ## Quick Start
+//! ## Getting Started
 //!
-//! ### Basic Usage
+//! ### Step 1: Add Dependencies
+//!
+//! Add to your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! tomplate = "0.1"
+//!
+//! [build-dependencies]
+//! tomplate-build = "0.1"
+//!
+//! # Optional: Enable additional template engines
+//! # [dependencies.tomplate]
+//! # version = "0.1"
+//! # features = ["handlebars", "tera"]  # Add the engines you need
+//! ```
+//!
+//! ### Step 2: Create a Build Script
+//!
+//! Create `build.rs` in your project root:
 //!
 //! ```rust,ignore
-//! use tomplate::tomplate;
+//! fn main() {
+//!     tomplate_build::Builder::new()
+//!         .add_patterns([
+//!             "**/*.tomplate.toml",  // Recursively find .tomplate.toml files
+//!             "templates/*.toml",     // Also check templates directory
+//!         ])
+//!         .build()
+//!         .expect("Failed to build templates");
+//! }
+//! ```
 //!
-//! // Using a template from the registry
-//! const QUERY: &str = tomplate!("user_query", 
-//!     table = "users",
+//! ### Step 3: Create Template Files
+//!
+//! Create a file like `templates/queries.tomplate.toml`:
+//!
+//! ```toml
+//! # Simple variable substitution (default engine)
+//! [user_query]
+//! template = "SELECT {fields} FROM users WHERE {condition}"
+//!
+//! # Using Handlebars for logic
+//! [conditional_query]
+//! template = """
+//! SELECT * FROM users
+//! {{#if status}}
+//! WHERE status = '{{status}}'
+//! {{/if}}
+//! """
+//! engine = "handlebars"
+//!
+//! # Template with default values
+//! [paginated_query]
+//! template = "SELECT * FROM {table} LIMIT {limit} OFFSET {offset}"
+//! ```
+//!
+//! ### Step 4: Use Templates in Your Code
+//!
+//! ```rust,ignore
+//! # use tomplate::tomplate;
+//! # fn main() {
+//! // Using templates from files
+//! const USER_QUERY: &str = tomplate!("user_query",
+//!     fields = "id, name, email",
 //!     condition = "active = true"
 //! );
+//! // Result: "SELECT id, name, email FROM users WHERE active = true"
 //!
-//! // Using an inline template
+//! // Using inline templates (when not found in registry)
 //! const GREETING: &str = tomplate!(
 //!     "Hello {name}, welcome to {place}!",
 //!     name = "Alice",
 //!     place = "Wonderland"
 //! );
+//! // Result: "Hello Alice, welcome to Wonderland!"
+//! # }
 //! ```
 //!
-//! ### Composition Blocks
+//! ## Major Features Examples
+//!
+//! ### 1. File-Based vs Inline Templates
+//!
+//! ```rust,ignore
+//! use tomplate::tomplate;
+//!
+//! // File-based: Looks for "user_query" in your .tomplate.toml files
+//! const FROM_FILE: &str = tomplate!("user_query", 
+//!     fields = "id, name",
+//!     condition = "active = true"
+//! );
+//!
+//! // Inline: If "Hello {name}!" isn't found in files, treats it as template
+//! const INLINE: &str = tomplate!(
+//!     "Hello {name}!",
+//!     name = "World"
+//! );
+//!
+//! // How it works:
+//! // 1. First checks if the string matches a template name in registry
+//! // 2. If not found, uses the string itself as an inline template
+//! ```
+//!
+//! ### 2. Nested Template Composition
+//!
+//! ```rust,ignore
+//! # use tomplate::tomplate;
+//! # fn main() {
+//! // Templates can use other templates as parameters
+//! const NESTED: &str = tomplate!("wrapper_template",
+//!     header = tomplate!("header_template", title = "My App"),
+//!     body = tomplate!("SELECT * FROM {table}", table = "users"),
+//!     footer = tomplate!("footer_template", year = "2024")
+//! );
+//!
+//! // This enables building complex templates from simple parts
+//! # }
+//! ```
+//!
+//! ### 3. Composition Blocks with Scoped Variables
 //!
 //! ```rust,ignore
 //! use tomplate::tomplate;
 //!
 //! tomplate! {
-//!     // Local variables (only available in this block)
+//!     // Local variables - reusable within the block
 //!     let base_fields = tomplate!("id, name, email");
-//!     let condition = tomplate!("active = true");
-//!     
-//!     // Exported constants (available outside the block)
-//!     const USER_QUERY = tomplate!(
-//!         "SELECT {fields} FROM users WHERE {condition}",
-//!         fields = base_fields,
-//!         condition = condition
+//!     let active_condition = tomplate!("status = 'active'");
+//!     let pagination = tomplate!("LIMIT {limit} OFFSET {offset}",
+//!         limit = "10",
+//!         offset = "0"
 //!     );
 //!     
-//!     const COUNT_QUERY = tomplate!(
+//!     // Export constants - available outside the block
+//!     const GET_ACTIVE_USERS = tomplate!(
+//!         "SELECT {fields} FROM users WHERE {condition} {page}",
+//!         fields = base_fields,
+//!         condition = active_condition,
+//!         page = pagination
+//!     );
+//!     
+//!     const COUNT_ACTIVE = tomplate!(
 //!         "SELECT COUNT(*) FROM users WHERE {condition}",
-//!         condition = condition
+//!         condition = active_condition
+//!     );
+//!     
+//!     // Can use both file templates and inline templates
+//!     const MIXED = tomplate!("wrapper_template",
+//!         content = tomplate!("Inline: {value}", value = base_fields)
 //!     );
 //! }
 //!
-//! // Use the generated constants
-//! assert_eq!(USER_QUERY, "SELECT id, name, email FROM users WHERE active = true");
+//! // The constants are now available for use
+//! fn main(){
+//!     println!("{}", GET_ACTIVE_USERS);
+//! }
+//! // Output: "SELECT id, name, email FROM users WHERE status = 'active' LIMIT 10 OFFSET 0"
 //! ```
 //!
-//! ### Eager Evaluation for Nested Macros
+//! ### 4. Multiple Template Engines
+//!
+//! ```rust,ignore
+//! // In your .tomplate.toml file:
+//! // [simple_template]
+//! // template = "Hello {name}"
+//! // engine = "simple"  # Default - basic {var} substitution
+//! //
+//! // [handlebars_template]
+//! // template = "{{#if logged_in}}Welcome {{user}}{{else}}Please login{{/if}}"
+//! // engine = "handlebars"
+//! //
+//! // [tera_template]
+//! // template = "{% for item in items %}{{ item|upper }}{% endfor %}"
+//! // engine = "tera"
+//!
+//! // Use them the same way
+//! const SIMPLE: &str = tomplate!("simple_template", name = "Alice");
+//! const LOGIC: &str = tomplate!("handlebars_template", 
+//!     logged_in = "true",
+//!     user = "Bob"
+//! );
+//! ```
+//!
+//! ### 5. Eager Evaluation for Nested Macros
 //!
 //! ```rust,ignore
 //! use tomplate::{tomplate, tomplate_eager};
@@ -164,8 +301,9 @@ pub use tomplate_macros::tomplate;
 /// # Examples
 ///
 /// ```rust,ignore
-/// use tomplate::{tomplate, tomplate_eager};
-///
+/// # use tomplate::{tomplate, tomplate_eager};
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # let pool = ();
 /// // Without tomplate_eager: ❌ Fails
 /// // sqlx::query!(tomplate!("select_user", id = "5"))
 /// //     .fetch_one(&pool)
@@ -186,6 +324,8 @@ pub use tomplate_macros::tomplate;
 ///         tomplate!("select_part2")
 ///     );
 /// }
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// # How It Works

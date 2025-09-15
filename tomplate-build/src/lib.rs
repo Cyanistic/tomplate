@@ -100,12 +100,12 @@ pub use builder::BuildMode;
 
 /// Template engine specifications.
 ///
-/// See [`Engine`](types::Engine) for available engines.
+/// See [`Engine`] for available engines.
 pub use types::Engine;
 
 /// Error type for build operations.
 ///
-/// See [`Error`](types::Error) for possible error variants.
+/// See [`Error`] for possible error variants.
 pub use types::Error;
 
 /// Result type alias for build operations.
@@ -113,5 +113,5 @@ pub use types::Result;
 
 /// Template definition structure.
 ///
-/// See [`Template`](types::Template) for template structure details.
+/// See [`Template`] for template structure details.
 pub use types::Template;
