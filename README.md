@@ -85,13 +85,6 @@ const GREETING: &str = tomplate!(
     name = "Alice",
     place = "Wonderland"
 );
-
-// Use the generated SQL in your application
-async fn get_user(pool: &PgPool, id: i32) -> Result<User> {
-    sqlx::query_as!(User, GET_USER, id)
-        .fetch_one(pool)
-        .await
-}
 ```
 
 ## 🎨 Major Features
@@ -123,9 +116,6 @@ tomplate! {
         condition = active_condition
     );
 }
-
-// Use the exported constants
-let users = sqlx::query!(GET_ACTIVE_USERS).fetch_all(&pool).await?;
 ```
 
 ### Multiple Template Engines

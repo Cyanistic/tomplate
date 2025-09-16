@@ -11,10 +11,10 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-tomplate-macros = { version = "0.1", default-features = false }
+tomplate-macros = { version = "0.1", path = "../tomplate-macros", default-features = false }
 
 # Re-export for convenience
-tomplate-build = { version = "0.1", optional = true }
+tomplate-build = { version = "0.1", path = "../tomplate-build", optional = true }
 
 [features]
 default = ["simple"]
